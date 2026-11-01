@@ -10,321 +10,249 @@ let callTimer = null;
 let callStartTime = null;
 let pendingImage = null;
 
-// === Элементы DOM ===
+// DOM Elements
 const authScreen = document.getElementById('authScreen');
 const mainScreen = document.getElementById('mainScreen');
-const loginForm = document.getElementById('loginForm');
-const registerForm = document.getElementById('registerForm');
-const authError = document.getElementById('authError');
 const messagesDiv = document.getElementById('messages');
 const messageInput = document.getElementById('messageInput');
-const sendBtn = document.getElementById('sendBtn');
-const emojiBtn = document.getElementById('emojiBtn');
-const emojiPicker = document.getElementById('emojiPicker');
-const imageBtn = document.getElementById('imageBtn');
-const imageInput = document.getElementById('imageInput');
-const usersList = document.getElementById('usersList');
-const chatTitle = document.getElementById('chatTitle');
-const callButtons = document.getElementById('callButtons');
+const sidebar = document.getElementById('sidebar');
+const callStatus = document.getElementById('callStatus');
+const callConnectionStatus = document.getElementById('callConnectionStatus');
 
-// === Переключение табов ===
+// === Авторизация ===
 document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.form').forEach(f => f.classList.remove('active'));
         tab.classList.add('active');
-        const targetForm = document.getElementById(tab.dataset.tab + 'Form');
-        if (targetForm) targetForm.classList.add('active');
-        authError.textContent = '';
-        authError.style.color = '#e74c3c';
+        document.getElementById(tab.dataset.tab + 'Form').classList.add('active');
+        document.getElementById('authError').textContent = '';
     });
 });
 
-// === Регистрация ===
-registerForm.addEventListener('submit', async (e) => {
+document.getElementById('registerForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = document.getElementById('regUsername').value.trim();
     const password = document.getElementById('regPassword').value.trim();
-    
-    if (!username || !password) {
-        authError.style.color = '#e74c3c';
-        authError.textContent = 'Заполните все поля';
-        return;
-    }
-    
-    try {
-        const res = await fetch('/api/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-        
-        const data = await res.json();
-        
-        if (data.success) {
-            authError.style.color = '#2ecc71';
-            authError.textContent = '✓ Регистрация успешна! Теперь войдите.';
-            setTimeout(() => {
-                document.querySelector('.tab[data-tab="login"]').click();
-            }, 1500);
-        } else {
-            authError.style.color = '#e74c3c';
-            authError.textContent = data.error || 'Ошибка регистрации';
-        }
-    } catch (err) {
-        authError.style.color = '#e74c3c';
-        authError.textContent = 'Ошибка соединения с сервером';
+    const res = await fetch('/api/register', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    const errEl = document.getElementById('authError');
+    if (data.success) {
+        errEl.style.color = '#006C4C';
+        errEl.textContent = 'Успешно! Теперь войдите.';
+        setTimeout(() => document.querySelector('.tab[data-tab="login"]').click(), 1500);
+    } else {
+        errEl.style.color = '#BA1A1A';
+        errEl.textContent = data.error;
     }
 });
 
-// === Вход ===
-loginForm.addEventListener('submit', async (e) => {
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = document.getElementById('loginUsername').value.trim();
     const password = document.getElementById('loginPassword').value.trim();
-    
-    try {
-        const res = await fetch('/api/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-        
-        const data = await res.json();
-        
-        if (data.success) {
-            currentUser = data.username;
-            document.getElementById('currentUsername').textContent = currentUser;
-            authScreen.classList.remove('active');
-            mainScreen.classList.add('active');
-            socket.emit('user online', currentUser);
-            requestNotificationPermission();
-        } else {
-            authError.textContent = data.error;
-        }
-    } catch (err) {
-        authError.textContent = 'Ошибка соединения с сервером';
+    const res = await fetch('/api/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (data.success) {
+        currentUser = data.username;
+        document.getElementById('currentUsername').textContent = currentUser;
+        authScreen.classList.remove('active');
+        mainScreen.classList.add('active');
+        socket.emit('user online', currentUser);
+    } else {
+        document.getElementById('authError').textContent = data.error;
     }
 });
 
-document.getElementById('logoutBtn').addEventListener('click', () => {
-    location.reload();
+document.getElementById('logoutBtn').addEventListener('click', () => location.reload());
+
+// === Мобильная навигация ===
+document.getElementById('menuBtn').addEventListener('click', () => sidebar.classList.add('open'));
+document.getElementById('mobileBackBtn').addEventListener('click', () => {
+    sidebar.classList.add('open');
+    currentChat = 'general';
+    selectedUser = null;
+    document.getElementById('chatTitle').textContent = 'Общий чат';
+    document.getElementById('callButtons').style.display = 'none';
+    messagesDiv.innerHTML = '';
 });
 
-// === Переключение чатов ===
+// === Чаты ===
 document.querySelectorAll('.chat-tab').forEach(tab => {
     tab.addEventListener('click', () => {
         document.querySelectorAll('.chat-tab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         currentChat = tab.dataset.chat;
         messagesDiv.innerHTML = '';
+        if (window.innerWidth <= 768) sidebar.classList.remove('open');
         
         if (currentChat === 'general') {
-            chatTitle.textContent = 'Общий чат';
-            callButtons.style.display = 'none';
+            document.getElementById('chatTitle').textContent = 'Общий чат';
+            document.getElementById('callButtons').style.display = 'none';
             selectedUser = null;
         } else {
-            chatTitle.textContent = 'Выберите пользователя';
-            callButtons.style.display = 'none';
+            document.getElementById('chatTitle').textContent = 'Выберите пользователя';
+            document.getElementById('callButtons').style.display = 'none';
         }
     });
 });
 
-// === Отправка сообщений ===
+socket.on('users update', (users) => {
+    const list = document.getElementById('usersList');
+    list.innerHTML = '';
+    users.forEach(user => {
+        if (user.username === currentUser) return;
+        const item = document.createElement('div');
+        item.className = 'user-item' + (selectedUser === user.username ? ' active' : '');
+        item.innerHTML = `<span class="status-dot ${user.status}"></span><span>${user.username}</span>`;
+        item.addEventListener('click', () => {
+            selectedUser = user.username;
+            document.querySelectorAll('.user-item').forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+            document.getElementById('chatTitle').textContent = user.username;
+            messagesDiv.innerHTML = '';
+            socket.emit('get private history', { user1: currentUser, user2: user.username });
+            document.getElementById('callButtons').style.display = user.status === 'online' ? 'flex' : 'none';
+            if (window.innerWidth <= 768) sidebar.classList.remove('open');
+        });
+        list.appendChild(item);
+    });
+});
+
+// === Сообщения ===
 function sendMessage() {
     const text = messageInput.value.trim();
     if (!text && !pendingImage) return;
+    const msgData = { text, image: pendingImage, username: currentUser };
     
-    const msgData = { text: text, image: pendingImage, username: currentUser };
-    
-    if (currentChat === 'general') {
-        socket.emit('chat message', msgData);
-    } else if (selectedUser) {
-        socket.emit('private message', { from: currentUser, to: selectedUser, ...msgData });
-    }
+    if (currentChat === 'general') socket.emit('chat message', msgData);
+    else if (selectedUser) socket.emit('private message', { from: currentUser, to: selectedUser, ...msgData });
     
     messageInput.value = '';
     pendingImage = null;
 }
 
-sendBtn.addEventListener('click', sendMessage);
-messageInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') sendMessage();
-});
+document.getElementById('sendBtn').addEventListener('click', sendMessage);
+messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
 
-// === Получение сообщений ===
 socket.on('chat message', (msg) => {
     if (currentChat === 'general') addMessage(msg, msg.username === currentUser);
-    if (msg.username !== currentUser && document.hidden) {
-        showNotification(msg.username + ': ' + (msg.text || '📷 Фото'));
-    }
 });
-
 socket.on('private message', (msg) => {
-    const otherUser = msg.from === currentUser ? msg.to : msg.from;
-    if (currentChat === 'private' && selectedUser === otherUser) {
+    if (currentChat === 'private' && (msg.from === selectedUser || msg.from === currentUser)) {
         addMessage(msg, msg.from === currentUser);
     }
-    if (msg.from !== currentUser && document.hidden) {
-        showNotification(msg.from + ': ' + (msg.text || '📷 Фото'));
-    }
 });
-
 socket.on('message history', (history) => {
-    if (currentChat === 'general') {
-        history.forEach(msg => addMessage(msg, msg.username === currentUser));
-    }
+    if (currentChat === 'general') history.forEach(msg => addMessage(msg, msg.username === currentUser));
 });
-
-function addMessage(msg, isOwn) {
-    const messageEl = document.createElement('div');
-    messageEl.className = 'message' + (isOwn ? ' own-message' : '');
-    
-    let content = '';
-    if (msg.text) content += '<div class="message-text">' + escapeHtml(msg.text) + '</div>';
-    if (msg.image) content += '<div class="message-text"><img src="' + msg.image + '" alt="image"></div>';
-    
-    messageEl.innerHTML = 
-        '<div class="message-header">' +
-            '<span class="username">' + escapeHtml(msg.username || msg.from) + '</span>' +
-            '<span class="time">' + msg.timestamp + '</span>' +
-        '</div>' +
-        content;
-    
-    messagesDiv.appendChild(messageEl);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
-
-// === Список пользователей ===
-socket.on('users update', (users) => {
-    usersList.innerHTML = '';
-    users.forEach(user => {
-        if (user.username === currentUser) return;
-        
-        const item = document.createElement('div');
-        item.className = 'user-item' + (selectedUser === user.username ? ' active' : '');
-        item.innerHTML = 
-            '<div>' +
-                '<span class="status-dot ' + user.status + '"></span>' +
-                '<span>' + escapeHtml(user.username) + '</span>' +
-            '</div>';
-        
-        item.addEventListener('click', () => {
-            selectedUser = user.username;
-            document.querySelectorAll('.user-item').forEach(i => i.classList.remove('active'));
-            item.classList.add('active');
-            chatTitle.textContent = 'Чат с ' + user.username;
-            messagesDiv.innerHTML = '';
-            socket.emit('get private history', { user1: currentUser, user2: user.username });
-            
-            if (user.status === 'online') {
-                callButtons.style.display = 'flex';
-            } else {
-                callButtons.style.display = 'none';
-            }
-        });
-        
-        usersList.appendChild(item);
-    });
-});
-
 socket.on('private history', (history) => {
     history.forEach(msg => addMessage(msg, msg.from === currentUser));
 });
 
-// === Эмодзи ===
-const emojis = ['😀','😂','😍','😎','😢','😡','👍','👎','❤️','🔥','🎉','🙏','😊','🤔','😴','🤗','😱','🥳','😇','🤩'];
-emojis.forEach(emoji => {
+function addMessage(msg, isOwn) {
+    const div = document.createElement('div');
+    div.className = `message ${isOwn ? 'own' : 'other'}`;
+    let content = '';
+    if (msg.text) content += `<div class="message-text">${escapeHtml(msg.text)}</div>`;
+    if (msg.image) content += `<div class="message-text"><img src="${msg.image}"></div>`;
+    div.innerHTML = `<div class="message-header"><span>${isOwn ? '' : escapeHtml(msg.username || msg.from)}</span><span>${msg.timestamp}</span></div>${content}`;
+    messagesDiv.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+// === Эмодзи и Фото ===
+const emojis = ['😀','😂','😍','😎','👍','❤️','🔥','🎉','🙏','😊','🤔','😴','🤗','😱','🥳'];
+const picker = document.getElementById('emojiPicker');
+emojis.forEach(e => {
     const span = document.createElement('span');
-    span.textContent = emoji;
-    span.addEventListener('click', () => {
-        messageInput.value += emoji;
-        emojiPicker.style.display = 'none';
-    });
-    emojiPicker.appendChild(span);
+    span.textContent = e;
+    span.onclick = () => { messageInput.value += e; picker.style.display = 'none'; };
+    picker.appendChild(span);
 });
-
-emojiBtn.addEventListener('click', () => {
-    emojiPicker.style.display = emojiPicker.style.display === 'none' ? 'grid' : 'none';
-});
-
-// === Изображения ===
-imageBtn.addEventListener('click', () => imageInput.click());
-
-imageInput.addEventListener('change', (e) => {
+document.getElementById('emojiBtn').onclick = () => picker.style.display = picker.style.display === 'grid' ? 'none' : 'grid';
+document.getElementById('imageBtn').onclick = () => document.getElementById('imageInput').click();
+document.getElementById('imageInput').onchange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
     const reader = new FileReader();
-    reader.onload = (event) => {
-        pendingImage = event.target.result;
-        sendMessage();
-    };
+    reader.onload = (ev) => { pendingImage = ev.target.result; sendMessage(); };
     reader.readAsDataURL(file);
-    imageInput.value = '';
-});
+};
 
-// === Звонки ===
-const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+// === ЗВОНКИ (ИСПРАВЛЕННЫЕ) ===
+const rtcConfig = {
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+    ]
+};
 
-document.getElementById('audioCallBtn').addEventListener('click', () => startCall('audio'));
-document.getElementById('videoCallBtn').addEventListener('click', () => startCall('video'));
+document.getElementById('audioCallBtn').onclick = () => startCall('audio');
+document.getElementById('videoCallBtn').onclick = () => startCall('video');
 
 async function startCall(callType) {
     if (!selectedUser) return;
-    
     try {
-        const constraints = callType === 'video' 
-            ? { audio: true, video: true } 
-            : { audio: true, video: false };
-        
+        const constraints = callType === 'video' ? { audio: true, video: true } : { audio: true, video: false };
         localStream = await navigator.mediaDevices.getUserMedia(constraints);
         
-        const callId = Date.now() + '_' + currentUser + '_' + selectedUser;
-        currentCallId = callId;
-        
+        currentCallId = Date.now() + '_' + currentUser + '_' + selectedUser;
         peerConnection = new RTCPeerConnection(rtcConfig);
         
-        localStream.getTracks().forEach(track => {
-            peerConnection.addTrack(track, localStream);
-        });
+        // Отслеживание состояния подключения (ИСПРАВЛЕНИЕ: видно, подключился или нет)
+        peerConnection.onconnectionstatechange = () => {
+            const state = peerConnection.connectionState;
+            console.log('Call state:', state);
+            callConnectionStatus.textContent = state === 'connected' ? 'Подключено' : 
+                                               state === 'connecting' ? 'Подключение...' : 
+                                               state === 'failed' ? 'Ошибка соединения' : 'Завершено';
+            callConnectionStatus.className = 'connection-status ' + state;
+        };
+
+        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
         
         peerConnection.ontrack = (event) => {
-            document.getElementById('remoteVideo').srcObject = event.streams[0];
+            const remoteVideo = document.getElementById('remoteVideo');
+            remoteVideo.srcObject = event.streams[0];
+            // Гарантируем воспроизведение звука
+            remoteVideo.muted = false;
+            remoteVideo.play().catch(e => console.log('Autoplay prevented:', e));
         };
         
         peerConnection.onicecandidate = (event) => {
-            if (event.candidate) {
-                socket.emit('ice candidate', { to: selectedUser, candidate: event.candidate });
-            }
+            if (event.candidate) socket.emit('ice candidate', { to: selectedUser, candidate: event.candidate });
         };
         
         document.getElementById('localVideo').srcObject = localStream;
-        if (callType === 'audio') {
-            document.getElementById('localVideo').style.display = 'none';
-        }
+        document.getElementById('localVideo').style.display = callType === 'audio' ? 'none' : 'block';
         
-        socket.emit('call user', { from: currentUser, to: selectedUser, callType });
+        socket.emit('call user', { callId: currentCallId, from: currentUser, to: selectedUser, callType });
         
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
+        socket.emit('call offer', { callId: currentCallId, to: selectedUser, offer });
         
-        socket.emit('call offer', { callId, to: selectedUser, offer });
-        
-        showCallWindow(selectedUser, callType);
+        showCallWindow(selectedUser);
     } catch (err) {
-        alert('Не удалось получить доступ к микрофону/камере: ' + err.message);
+        alert('Ошибка доступа к микрофону/камере: ' + err.message);
     }
 }
 
 socket.on('incoming call', (data) => {
     document.getElementById('callerName').textContent = data.from;
-    document.getElementById('callType').textContent = data.callType === 'video' ? '📹 Видеозвонок' : '📞 Голосовой вызов';
+    document.getElementById('callType').textContent = data.callType === 'video' ? 'Видеозвонок' : 'Аудиозвонок';
     document.getElementById('incomingCallModal').style.display = 'flex';
     
     document.getElementById('acceptCallBtn').onclick = () => acceptCall(data);
     document.getElementById('rejectCallBtn').onclick = () => {
-        socket.emit('call reject', { callId: data.callId, from: data.from });
+        socket.emit('call end', { to: data.from });
         document.getElementById('incomingCallModal').style.display = 'none';
     };
 });
@@ -332,34 +260,29 @@ socket.on('incoming call', (data) => {
 async function acceptCall(data) {
     document.getElementById('incomingCallModal').style.display = 'none';
     currentCallId = data.callId;
-    
     try {
-        const constraints = data.callType === 'video' 
-            ? { audio: true, video: true } 
-            : { audio: true, video: false };
-        
+        const constraints = data.callType === 'video' ? { audio: true, video: true } : { audio: true, video: false };
         localStream = await navigator.mediaDevices.getUserMedia(constraints);
         
         peerConnection = new RTCPeerConnection(rtcConfig);
         
-        localStream.getTracks().forEach(track => {
-            peerConnection.addTrack(track, localStream);
-        });
-        
+        peerConnection.onconnectionstatechange = () => {
+            const state = peerConnection.connectionState;
+            callConnectionStatus.textContent = state === 'connected' ? 'Подключено' : state === 'connecting' ? 'Подключение...' : 'Ошибка';
+            callConnectionStatus.className = 'connection-status ' + state;
+        };
+
+        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
         peerConnection.ontrack = (event) => {
             document.getElementById('remoteVideo').srcObject = event.streams[0];
+            document.getElementById('remoteVideo').muted = false;
         };
-        
         peerConnection.onicecandidate = (event) => {
-            if (event.candidate) {
-                socket.emit('ice candidate', { to: data.from, candidate: event.candidate });
-            }
+            if (event.candidate) socket.emit('ice candidate', { to: data.from, candidate: event.candidate });
         };
         
         document.getElementById('localVideo').srcObject = localStream;
-        if (data.callType === 'audio') {
-            document.getElementById('localVideo').style.display = 'none';
-        }
+        document.getElementById('localVideo').style.display = data.callType === 'audio' ? 'none' : 'block';
         
         socket.once('call offer', async (offerData) => {
             if (offerData.callId === currentCallId) {
@@ -370,9 +293,9 @@ async function acceptCall(data) {
             }
         });
         
-        showCallWindow(data.from, data.callType);
+        showCallWindow(data.from);
     } catch (err) {
-        alert('Ошибка доступа к медиа: ' + err.message);
+        alert('Ошибка: ' + err.message);
     }
 }
 
@@ -384,21 +307,12 @@ socket.on('call answered', async (data) => {
 });
 
 socket.on('ice candidate', async (data) => {
-    if (peerConnection) {
-        await peerConnection.addIceCandidate(data.candidate);
-    }
+    if (peerConnection && data.candidate) await peerConnection.addIceCandidate(data.candidate);
 });
 
-socket.on('call rejected', () => {
-    alert('Звонок отклонён');
-    endCall();
-});
+socket.on('call ended', () => endCall());
 
-socket.on('call ended', () => {
-    endCall();
-});
-
-function showCallWindow(partner, callType) {
+function showCallWindow(partner) {
     document.getElementById('callPartner').textContent = partner;
     document.getElementById('callWindow').style.display = 'flex';
     startCallTimer();
@@ -408,69 +322,45 @@ function startCallTimer() {
     callStartTime = Date.now();
     callTimer = setInterval(() => {
         const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
-        const min = String(Math.floor(elapsed / 60)).padStart(2, '0');
-        const sec = String(elapsed % 60).padStart(2, '0');
-        document.getElementById('callTimer').textContent = min + ':' + sec;
+        document.getElementById('callTimer').textContent = 
+            String(Math.floor(elapsed / 60)).padStart(2, '0') + ':' + String(elapsed % 60).padStart(2, '0');
     }, 1000);
 }
 
-document.getElementById('endCallBtn').addEventListener('click', () => {
-    if (selectedUser) {
-        socket.emit('call end', { callId: currentCallId, to: selectedUser });
-    }
+document.getElementById('endCallBtn').onclick = () => {
+    if (selectedUser) socket.emit('call end', { to: selectedUser });
     endCall();
-});
+};
 
 function endCall() {
-    if (peerConnection) {
-        peerConnection.close();
-        peerConnection = null;
-    }
-    if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-        localStream = null;
-    }
-    if (callTimer) {
-        clearInterval(callTimer);
-        callTimer = null;
-    }
+    if (peerConnection) { peerConnection.close(); peerConnection = null; }
+    if (localStream) { localStream.getTracks().forEach(track => track.stop()); localStream = null; }
+    if (callTimer) { clearInterval(callTimer); callTimer = null; }
     document.getElementById('callWindow').style.display = 'none';
     document.getElementById('localVideo').style.display = 'block';
     currentCallId = null;
 }
 
-document.getElementById('muteBtn').addEventListener('click', (e) => {
+document.getElementById('muteBtn').onclick = function() {
     if (localStream) {
-        const audioTrack = localStream.getAudioTracks()[0];
-        audioTrack.enabled = !audioTrack.enabled;
-        e.target.classList.toggle('active');
+        const track = localStream.getAudioTracks()[0];
+        track.enabled = !track.enabled;
+        this.classList.toggle('active');
+        this.querySelector('span').textContent = track.enabled ? 'mic' : 'mic_off';
     }
-});
+};
 
-document.getElementById('cameraBtn').addEventListener('click', (e) => {
+document.getElementById('cameraBtn').onclick = function() {
     if (localStream) {
-        const videoTrack = localStream.getVideoTracks()[0];
-        if (videoTrack) {
-            videoTrack.enabled = !videoTrack.enabled;
-            e.target.classList.toggle('active');
+        const track = localStream.getVideoTracks()[0];
+        if (track) {
+            track.enabled = !track.enabled;
+            this.classList.toggle('active');
+            this.querySelector('span').textContent = track.enabled ? 'videocam' : 'videocam_off';
         }
     }
-});
+};
 
-// === Уведомления ===
-function requestNotificationPermission() {
-    if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
-    }
-}
-
-function showNotification(text) {
-    if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('Новое сообщение', { body: text });
-    }
-}
-
-// === Утилиты ===
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
