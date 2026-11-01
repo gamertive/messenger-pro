@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Экран авторизации -->
     <div id="authScreen" class="screen active">
         <div class="auth-card">
             <span class="material-symbols-rounded logo-icon">chat_bubble</span>
@@ -43,7 +42,6 @@
         </div>
     </div>
 
-    <!-- Основной экран -->
     <div id="mainScreen" class="screen">
         <button id="mobileBackBtn" class="mobile-back-btn">
             <span class="material-symbols-rounded">arrow_back</span>
@@ -69,6 +67,9 @@
                 </button>
             </div>
             <div id="usersList" class="users-list"></div>
+            <button id="settingsBtn" class="settings-btn">
+                <span class="material-symbols-rounded">settings</span> Настройки
+            </button>
         </div>
 
         <div class="chat-area">
@@ -93,15 +94,17 @@
             <div class="chat-box" id="messages"></div>
             
             <div class="input-area">
-                <button id="emojiBtn" class="icon-btn">
-                    <span class="material-symbols-rounded">mood</span>
-                </button>
-                <button id="imageBtn" class="icon-btn">
-                    <span class="material-symbols-rounded">image</span>
-                </button>
-                <input type="file" id="imageInput" accept="image/*" hidden>
-                <input type="text" id="messageInput" placeholder="Сообщение..." autocomplete="off">
-                <button id="sendBtn" class="icon-btn primary">
+                <div class="input-wrapper">
+                    <button id="emojiBtn" class="input-icon-btn">
+                        <span class="material-symbols-rounded">mood</span>
+                    </button>
+                    <button id="imageBtn" class="input-icon-btn">
+                        <span class="material-symbols-rounded">image</span>
+                    </button>
+                    <input type="file" id="imageInput" accept="image/*" hidden>
+                    <input type="text" id="messageInput" placeholder="Сообщение..." autocomplete="off">
+                </div>
+                <button id="sendBtn" class="send-btn">
                     <span class="material-symbols-rounded">send</span>
                 </button>
             </div>
@@ -109,7 +112,28 @@
         </div>
     </div>
 
-    <!-- Модалка входящего звонка -->
+    <!-- Модалка настроек -->
+    <div id="settingsModal" class="modal" style="display:none;">
+        <div class="modal-content settings-modal">
+            <div class="settings-header">
+                <h2>Настройки</h2>
+                <button id="closeSettingsBtn" class="icon-btn">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+            <div class="settings-content">
+                <div class="setting-item">
+                    <span class="material-symbols-rounded">dark_mode</span>
+                    <span>Тёмная тема</span>
+                    <label class="switch">
+                        <input type="checkbox" id="themeToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="incomingCallModal" class="modal" style="display:none;">
         <div class="modal-content call-modal">
             <span class="material-symbols-rounded call-icon-large">ring_volume</span>
@@ -127,7 +151,6 @@
         </div>
     </div>
 
-    <!-- Окно активного звонка -->
     <div id="callWindow" class="call-window" style="display:none;">
         <div class="call-header-overlay">
             <span id="callPartner">Имя</span>

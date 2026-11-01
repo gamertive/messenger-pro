@@ -36,6 +36,7 @@ function decrypt(text) {
 const users = new Map();
 const messages = [];
 const privateMessages = new Map();
+const callMap = new Map(); // callId -> {from, to}
 
 app.post('/api/register', async (req, res) => {
     const { username, password } = req.body;
@@ -53,12 +54,6 @@ app.post('/api/login', async (req, res) => {
         return res.status(401).json({ error: 'Неверные данные' });
     }
     res.json({ success: true, username });
-});
-
-app.get('/api/users', (req, res) => {
-    const list = [];
-    users.forEach((data, username) => list.push({ username, status: data.status }));
-    res.json(list);
 });
 
 io.on('connection', (socket) => {
@@ -111,11 +106,13 @@ io.on('connection', (socket) => {
         socket.emit('private history', history);
     });
 
+    // === ИСПРАВЛЕННЫЕ ЗВОНКИ ===
     socket.on('call user', (data) => {
         const target = users.get(data.to);
         if (!target || !target.socketId) {
             return socket.emit('call failed', { reason: 'Не в сети' });
         }
+        callMap.set(data.callId, { from: data.from, to: data.to });
         io.to(target.socketId).emit('incoming call', {
             callId: data.callId,
             from: data.from,
@@ -124,17 +121,29 @@ io.on('connection', (socket) => {
     });
 
     socket.on('call offer', (data) => {
-        const target = users.get(data.to);
-        if (target && target.socketId) {
-            io.to(target.socketId).emit('call offer', {
-                callId: data.callId,
-                offer: data.offer
-            });
+        const call = callMap.get(data.callId);
+        if (call) {
+            const target = users.get(call.to);
+            if (target && target.socketId) {
+                io.to(target.socketId).emit('call offer', {
+                    callId: data.callId,
+                    offer: data.offer
+                });
+            }
         }
     });
 
     socket.on('call answer', (data) => {
-        io.emit('call answered', { callId: data.callId, answer: data.answer });
+        const call = callMap.get(data.callId);
+        if (call) {
+            const caller = users.get(call.from);
+            if (caller && caller.socketId) {
+                io.to(caller.socketId).emit('call answered', {
+                    callId: data.callId,
+                    answer: data.answer
+                });
+            }
+        }
     });
 
     socket.on('ice candidate', (data) => {
@@ -149,6 +158,7 @@ io.on('connection', (socket) => {
         if (target && target.socketId) {
             io.to(target.socketId).emit('call ended');
         }
+        callMap.delete(data.callId);
     });
 
     socket.on('disconnect', () => {

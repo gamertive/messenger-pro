@@ -9,8 +9,8 @@ let localStream = null;
 let callTimer = null;
 let callStartTime = null;
 let pendingImage = null;
+let chatHistory = { general: [], private: {} };
 
-// DOM Elements
 const authScreen = document.getElementById('authScreen');
 const mainScreen = document.getElementById('mainScreen');
 const messagesDiv = document.getElementById('messages');
@@ -18,6 +18,26 @@ const messageInput = document.getElementById('messageInput');
 const sidebar = document.getElementById('sidebar');
 const callStatus = document.getElementById('callStatus');
 const callConnectionStatus = document.getElementById('callConnectionStatus');
+
+// === Тема ===
+const themeToggle = document.getElementById('themeToggle');
+const savedTheme = localStorage.getItem('theme') || 'light';
+document.documentElement.setAttribute('data-theme', savedTheme);
+themeToggle.checked = savedTheme === 'dark';
+
+themeToggle.addEventListener('change', () => {
+    const theme = themeToggle.checked ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+});
+
+document.getElementById('settingsBtn').addEventListener('click', () => {
+    document.getElementById('settingsModal').style.display = 'flex';
+});
+
+document.getElementById('closeSettingsBtn').addEventListener('click', () => {
+    document.getElementById('settingsModal').style.display = 'none';
+});
 
 // === Авторизация ===
 document.querySelectorAll('.tab').forEach(tab => {
@@ -41,7 +61,7 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
     const data = await res.json();
     const errEl = document.getElementById('authError');
     if (data.success) {
-        errEl.style.color = '#006C4C';
+        errEl.style.color = '#00C853';
         errEl.textContent = 'Успешно! Теперь войдите.';
         setTimeout(() => document.querySelector('.tab[data-tab="login"]').click(), 1500);
     } else {
@@ -80,7 +100,7 @@ document.getElementById('mobileBackBtn').addEventListener('click', () => {
     selectedUser = null;
     document.getElementById('chatTitle').textContent = 'Общий чат';
     document.getElementById('callButtons').style.display = 'none';
-    messagesDiv.innerHTML = '';
+    loadMessages();
 });
 
 // === Чаты ===
@@ -89,7 +109,6 @@ document.querySelectorAll('.chat-tab').forEach(tab => {
         document.querySelectorAll('.chat-tab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         currentChat = tab.dataset.chat;
-        messagesDiv.innerHTML = '';
         if (window.innerWidth <= 768) sidebar.classList.remove('open');
         
         if (currentChat === 'general') {
@@ -99,7 +118,9 @@ document.querySelectorAll('.chat-tab').forEach(tab => {
         } else {
             document.getElementById('chatTitle').textContent = 'Выберите пользователя';
             document.getElementById('callButtons').style.display = 'none';
+            messagesDiv.innerHTML = '';
         }
+        loadMessages();
     });
 });
 
@@ -116,14 +137,25 @@ socket.on('users update', (users) => {
             document.querySelectorAll('.user-item').forEach(i => i.classList.remove('active'));
             item.classList.add('active');
             document.getElementById('chatTitle').textContent = user.username;
-            messagesDiv.innerHTML = '';
-            socket.emit('get private history', { user1: currentUser, user2: user.username });
             document.getElementById('callButtons').style.display = user.status === 'online' ? 'flex' : 'none';
             if (window.innerWidth <= 768) sidebar.classList.remove('open');
+            loadMessages();
         });
         list.appendChild(item);
     });
 });
+
+function loadMessages() {
+    messagesDiv.innerHTML = '';
+    if (currentChat === 'general') {
+        chatHistory.general.forEach(msg => addMessage(msg, msg.username === currentUser, false));
+    } else if (selectedUser) {
+        const key = [currentUser, selectedUser].sort().join(':');
+        if (!chatHistory.private[key]) chatHistory.private[key] = [];
+        chatHistory.private[key].forEach(msg => addMessage(msg, msg.from === currentUser, false));
+        socket.emit('get private history', { user1: currentUser, user2: selectedUser });
+    }
+}
 
 // === Сообщения ===
 function sendMessage() {
@@ -131,8 +163,11 @@ function sendMessage() {
     if (!text && !pendingImage) return;
     const msgData = { text, image: pendingImage, username: currentUser };
     
-    if (currentChat === 'general') socket.emit('chat message', msgData);
-    else if (selectedUser) socket.emit('private message', { from: currentUser, to: selectedUser, ...msgData });
+    if (currentChat === 'general') {
+        socket.emit('chat message', msgData);
+    } else if (selectedUser) {
+        socket.emit('private message', { from: currentUser, to: selectedUser, ...msgData });
+    }
     
     messageInput.value = '';
     pendingImage = null;
@@ -142,29 +177,61 @@ document.getElementById('sendBtn').addEventListener('click', sendMessage);
 messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
 
 socket.on('chat message', (msg) => {
-    if (currentChat === 'general') addMessage(msg, msg.username === currentUser);
-});
-socket.on('private message', (msg) => {
-    if (currentChat === 'private' && (msg.from === selectedUser || msg.from === currentUser)) {
-        addMessage(msg, msg.from === currentUser);
+    if (currentChat === 'general') {
+        chatHistory.general.push(msg);
+        if (chatHistory.general.length > 200) chatHistory.general.shift();
+        addMessage(msg, msg.username === currentUser, true);
     }
 });
-socket.on('message history', (history) => {
-    if (currentChat === 'general') history.forEach(msg => addMessage(msg, msg.username === currentUser));
-});
-socket.on('private history', (history) => {
-    history.forEach(msg => addMessage(msg, msg.from === currentUser));
+
+socket.on('private message', (msg) => {
+    const key = [msg.from, msg.to].sort().join(':');
+    if (!chatHistory.private[key]) chatHistory.private[key] = [];
+    chatHistory.private[key].push(msg);
+    if (chatHistory.private[key].length > 100) chatHistory.private[key].shift();
+    
+    if (currentChat === 'private' && (msg.from === selectedUser || msg.to === selectedUser)) {
+        addMessage(msg, msg.from === currentUser, true);
+    }
 });
 
-function addMessage(msg, isOwn) {
+socket.on('message history', (history) => {
+    chatHistory.general = history;
+    if (currentChat === 'general') loadMessages();
+});
+
+socket.on('private history', (history) => {
+    if (selectedUser) {
+        const key = [currentUser, selectedUser].sort().join(':');
+        chatHistory.private[key] = history;
+        loadMessages();
+    }
+});
+
+function addMessage(msg, isOwn, animate = true) {
     const div = document.createElement('div');
     div.className = `message ${isOwn ? 'own' : 'other'}`;
+    if (!animate) div.style.animation = 'none';
+    
     let content = '';
     if (msg.text) content += `<div class="message-text">${escapeHtml(msg.text)}</div>`;
-    if (msg.image) content += `<div class="message-text"><img src="${msg.image}"></div>`;
-    div.innerHTML = `<div class="message-header"><span>${isOwn ? '' : escapeHtml(msg.username || msg.from)}</span><span>${msg.timestamp}</span></div>${content}`;
+    if (msg.image) content += `<div class="message-text"><img src="${msg.image}" onclick="saveImage('${msg.image}')"></div>`;
+    
+    const time = msg.timestamp || new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    const header = isOwn ? '' : `<div class="message-header">${escapeHtml(msg.username || msg.from)}</div>`;
+    
+    div.innerHTML = `${header}${content}<div class="message-time">${time}</div>`;
     messagesDiv.appendChild(div);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+function saveImage(imageData) {
+    const link = document.createElement('a');
+    link.href = imageData;
+    link.download = 'image_' + Date.now() + '.png';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
 // === Эмодзи и Фото ===
@@ -176,17 +243,24 @@ emojis.forEach(e => {
     span.onclick = () => { messageInput.value += e; picker.style.display = 'none'; };
     picker.appendChild(span);
 });
-document.getElementById('emojiBtn').onclick = () => picker.style.display = picker.style.display === 'grid' ? 'none' : 'grid';
+
+document.getElementById('emojiBtn').onclick = () => {
+    picker.style.display = picker.style.display === 'grid' ? 'none' : 'grid';
+};
+
 document.getElementById('imageBtn').onclick = () => document.getElementById('imageInput').click();
 document.getElementById('imageInput').onchange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => { pendingImage = ev.target.result; sendMessage(); };
+    reader.onload = (ev) => { 
+        pendingImage = ev.target.result;
+        sendMessage();
+    };
     reader.readAsDataURL(file);
 };
 
-// === ЗВОНКИ (ИСПРАВЛЕННЫЕ) ===
+// === ЗВОНКИ ===
 const rtcConfig = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
@@ -206,10 +280,8 @@ async function startCall(callType) {
         currentCallId = Date.now() + '_' + currentUser + '_' + selectedUser;
         peerConnection = new RTCPeerConnection(rtcConfig);
         
-        // Отслеживание состояния подключения (ИСПРАВЛЕНИЕ: видно, подключился или нет)
         peerConnection.onconnectionstatechange = () => {
             const state = peerConnection.connectionState;
-            console.log('Call state:', state);
             callConnectionStatus.textContent = state === 'connected' ? 'Подключено' : 
                                                state === 'connecting' ? 'Подключение...' : 
                                                state === 'failed' ? 'Ошибка соединения' : 'Завершено';
@@ -221,7 +293,6 @@ async function startCall(callType) {
         peerConnection.ontrack = (event) => {
             const remoteVideo = document.getElementById('remoteVideo');
             remoteVideo.srcObject = event.streams[0];
-            // Гарантируем воспроизведение звука
             remoteVideo.muted = false;
             remoteVideo.play().catch(e => console.log('Autoplay prevented:', e));
         };
@@ -252,7 +323,7 @@ socket.on('incoming call', (data) => {
     
     document.getElementById('acceptCallBtn').onclick = () => acceptCall(data);
     document.getElementById('rejectCallBtn').onclick = () => {
-        socket.emit('call end', { to: data.from });
+        socket.emit('call end', { callId: data.callId, to: data.from });
         document.getElementById('incomingCallModal').style.display = 'none';
     };
 });
@@ -328,7 +399,7 @@ function startCallTimer() {
 }
 
 document.getElementById('endCallBtn').onclick = () => {
-    if (selectedUser) socket.emit('call end', { to: selectedUser });
+    if (selectedUser) socket.emit('call end', { callId: currentCallId, to: selectedUser });
     endCall();
 };
 
