@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Messenger Pro</title>
-    <!-- Material Symbols Rounded (Официальные иконки Google) -->
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" rel="stylesheet" />
     <link rel="stylesheet" href="style.css">
 </head>
@@ -46,7 +45,6 @@
 
     <!-- Основной экран -->
     <div id="mainScreen" class="screen">
-        <!-- Мобильная кнопка назад -->
         <button id="mobileBackBtn" class="mobile-back-btn">
             <span class="material-symbols-rounded">arrow_back</span>
         </button>
@@ -57,7 +55,9 @@
                 <div class="user-chip">
                     <span class="material-symbols-rounded">account_circle</span>
                     <span id="currentUsername">User</span>
-                    <button id="logoutBtn" title="Выйти"><span class="material-symbols-rounded">logout</span></button>
+                    <button id="logoutBtn" title="Выйти">
+                        <span class="material-symbols-rounded">logout</span>
+                    </button>
                 </div>
             </div>
             <div class="chat-tabs">
@@ -73,7 +73,85 @@
 
         <div class="chat-area">
             <div class="chat-header">
-                <button id="menuBtn" class="icon-btn mobile-only"><span class="material-symbols-rounded">menu</span></button>
+                <button id="menuBtn" class="icon-btn mobile-only">
+                    <span class="material-symbols-rounded">menu</span>
+                </button>
                 <div class="chat-info">
                     <h3 id="chatTitle">Общий чат</h3>
-                    <span id="callStatus" class="call
+                    <span id="callStatus" class="call-status"></span>
+                </div>
+                <div class="call-buttons" id="callButtons" style="display:none;">
+                    <button id="audioCallBtn" class="icon-btn" title="Аудиозвонок">
+                        <span class="material-symbols-rounded">call</span>
+                    </button>
+                    <button id="videoCallBtn" class="icon-btn" title="Видеозвонок">
+                        <span class="material-symbols-rounded">videocam</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="chat-box" id="messages"></div>
+            
+            <div class="input-area">
+                <button id="emojiBtn" class="icon-btn">
+                    <span class="material-symbols-rounded">mood</span>
+                </button>
+                <button id="imageBtn" class="icon-btn">
+                    <span class="material-symbols-rounded">image</span>
+                </button>
+                <input type="file" id="imageInput" accept="image/*" hidden>
+                <input type="text" id="messageInput" placeholder="Сообщение..." autocomplete="off">
+                <button id="sendBtn" class="icon-btn primary">
+                    <span class="material-symbols-rounded">send</span>
+                </button>
+            </div>
+            <div id="emojiPicker" class="emoji-picker"></div>
+        </div>
+    </div>
+
+    <!-- Модалка входящего звонка -->
+    <div id="incomingCallModal" class="modal" style="display:none;">
+        <div class="modal-content call-modal">
+            <span class="material-symbols-rounded call-icon-large">ring_volume</span>
+            <h2>Входящий звонок</h2>
+            <p id="callerName">Имя</p>
+            <p id="callType" class="subtitle">Видеозвонок</p>
+            <div class="call-actions">
+                <button id="rejectCallBtn" class="btn-circle reject">
+                    <span class="material-symbols-rounded">call_end</span>
+                </button>
+                <button id="acceptCallBtn" class="btn-circle accept">
+                    <span class="material-symbols-rounded">call</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Окно активного звонка -->
+    <div id="callWindow" class="call-window" style="display:none;">
+        <div class="call-header-overlay">
+            <span id="callPartner">Имя</span>
+            <span id="callConnectionStatus" class="connection-status connecting">Подключение...</span>
+            <span id="callTimer">00:00</span>
+        </div>
+        <div class="video-container">
+            <video id="remoteVideo" autoplay playsinline></video>
+            <video id="localVideo" autoplay playsinline muted></video>
+        </div>
+        <div class="call-controls">
+            <button id="muteBtn" class="btn-circle control">
+                <span class="material-symbols-rounded">mic</span>
+            </button>
+            <button id="cameraBtn" class="btn-circle control">
+                <span class="material-symbols-rounded">videocam</span>
+            </button>
+            <button id="endCallBtn" class="btn-circle end">
+                <span class="material-symbols-rounded">call_end</span>
+            </button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="client.js"></script>
+</body>
+</html>

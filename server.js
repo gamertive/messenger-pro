@@ -12,11 +12,9 @@ const io = new Server(server, { cors: { origin: "*" } });
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json({ limit: '10mb' }));
 
-// Ключ шифрования (в реальном проекте хранить в .env!)
-const ENCRYPTION_KEY = crypto.randomBytes(32); 
+const ENCRYPTION_KEY = crypto.randomBytes(32);
 const IV_LENGTH = 16;
 
-// Функции шифрования/дешифрования
 function encrypt(text) {
     let iv = crypto.randomBytes(IV_LENGTH);
     let cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
@@ -69,7 +67,10 @@ io.on('connection', (socket) => {
     socket.on('user online', (username) => {
         currentUser = username;
         const user = users.get(username);
-        if (user) { user.socketId = socket.id; user.status = 'online'; }
+        if (user) {
+            user.socketId = socket.id;
+            user.status = 'online';
+        }
         socket.join(username);
         io.emit('users update', getUserList());
         socket.emit('message history', messages.map(m => ({...m, text: decrypt(m.text)})));
@@ -77,15 +78,13 @@ io.on('connection', (socket) => {
 
     socket.on('chat message', (msg) => {
         const messageData = {
-            text: encrypt(msg.text), // Шифруем перед сохранением
+            text: encrypt(msg.text),
             image: msg.image,
             username: msg.username,
             timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
         };
         messages.push(messageData);
         if (messages.length > 200) messages.shift();
-        
-        // Дешифруем для отправки клиентам
         const decryptedMsg = { ...messageData, text: decrypt(messageData.text) };
         io.emit('chat message', decryptedMsg);
     });
@@ -93,14 +92,14 @@ io.on('connection', (socket) => {
     socket.on('private message', (data) => {
         const key = [data.from, data.to].sort().join(':');
         if (!privateMessages.has(key)) privateMessages.set(key, []);
-        
         const msg = {
-            from: data.from, to: data.to,
-            text: encrypt(data.text), image: data.image,
+            from: data.from,
+            to: data.to,
+            text: encrypt(data.text),
+            image: data.image,
             timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
         };
         privateMessages.get(key).push(msg);
-        
         const decryptedMsg = { ...msg, text: decrypt(msg.text) };
         io.to(data.to).emit('private message', decryptedMsg);
         socket.emit('private message', decryptedMsg);
@@ -112,29 +111,65 @@ io.on('connection', (socket) => {
         socket.emit('private history', history);
     });
 
-    // === WebRTC Сигнализация ===
     socket.on('call user', (data) => {
         const target = users.get(data.to);
-        if (!target || !target.socketId) return socket.emit('call failed', { reason: 'Не в сети' });
-        io.to(target.socketId).emit('incoming call', { callId: data.callId, from: data.from, callType: data.callType });
+        if (!target || !target.socketId) {
+            return socket.emit('call failed', { reason: 'Не в сети' });
+        }
+        io.to(target.socketId).emit('incoming call', {
+            callId: data.callId,
+            from: data.from,
+            callType: data.callType
+        });
     });
 
     socket.on('call offer', (data) => {
         const target = users.get(data.to);
-        if (target?.socketId) io.to(target.socketId).emit('call offer', { callId: data.callId, offer: data.offer });
+        if (target && target.socketId) {
+            io.to(target.socketId).emit('call offer', {
+                callId: data.callId,
+                offer: data.offer
+            });
+        }
     });
 
     socket.on('call answer', (data) => {
-        const caller = Array.from(users.values()).find(u => u.socketId && data.callId.includes(u.socketId)); // Упрощенный поиск
-        // В реальном проекте callId должен мапиться на from/to
-        io.emit('call answered', { callId: data.callId, answer: data.answer }); 
+        io.emit('call answered', { callId: data.callId, answer: data.answer });
     });
 
     socket.on('ice candidate', (data) => {
         const target = users.get(data.to);
-        if (target?.socketId) io.to(target.socketId).emit('ice candidate', { candidate: data.candidate });
+        if (target && target.socketId) {
+            io.to(target.socketId).emit('ice candidate', { candidate: data.candidate });
+        }
     });
 
     socket.on('call end', (data) => {
         const target = users.get(data.to);
-        if
+        if (target && target.socketId) {
+            io.to(target.socketId).emit('call ended');
+        }
+    });
+
+    socket.on('disconnect', () => {
+        if (currentUser) {
+            const user = users.get(currentUser);
+            if (user) {
+                user.socketId = null;
+                user.status = 'offline';
+            }
+            io.emit('users update', getUserList());
+        }
+    });
+});
+
+function getUserList() {
+    const list = [];
+    users.forEach((data, username) => list.push({ username, status: data.status }));
+    return list;
+}
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, '0.0.0.0', () => {
+    console.log('Сервер запущен на порту ' + PORT);
+});
