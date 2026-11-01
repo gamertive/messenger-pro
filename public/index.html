@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мессенджер Pro</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Экран авторизации -->
+    <div id="authScreen" class="screen active">
+        <div class="auth-box">
+            <h1>💬 Мессенджер Pro</h1>
+            <div class="tabs">
+                <button class="tab active" data-tab="login">Вход</button>
+                <button class="tab" data-tab="register">Регистрация</button>
+            </div>
+            
+            <form id="loginForm" class="form active">
+                <input type="text" id="loginUsername" placeholder="Имя пользователя" required>
+                <input type="password" id="loginPassword" placeholder="Пароль" required>
+                <button type="submit">Войти</button>
+            </form>
+            
+            <form id="registerForm" class="form">
+                <input type="text" id="regUsername" placeholder="Имя пользователя" required>
+                <input type="password" id="regPassword" placeholder="Пароль" required>
+                <button type="submit">Зарегистрироваться</button>
+            </form>
+            
+            <div id="authError" class="error"></div>
+        </div>
+    </div>
+
+    <!-- Основной экран -->
+    <div id="mainScreen" class="screen">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>💬 Чаты</h2>
+                <div class="user-info">
+                    <span id="currentUsername"></span>
+                    <button id="logoutBtn" title="Выйти">🚪</button>
+                </div>
+            </div>
+            
+            <div class="chat-tabs">
+                <button class="chat-tab active" data-chat="general">🌐 Общий</button>
+                <button class="chat-tab" data-chat="private">👤 Личные</button>
+            </div>
+            
+            <div id="usersList" class="users-list"></div>
+        </div>
+
+        <div class="chat-area">
+            <div class="chat-header">
+                <h3 id="chatTitle">Общий чат</h3>
+                <div class="call-buttons" id="callButtons" style="display:none;">
+                    <button id="audioCallBtn" title="Голосовой вызов">📞</button>
+                    <button id="videoCallBtn" title="Видеозвонок">📹</button>
+                </div>
+            </div>
+            
+            <div class="chat-box" id="messages"></div>
+            
+            <div class="input-area">
+                <button id="emojiBtn" title="Эмодзи">😊</button>
+                <button id="imageBtn" title="Отправить изображение">🖼️</button>
+                <input type="file" id="imageInput" accept="image/*" style="display:none;">
+                <input type="text" id="messageInput" placeholder="Введите сообщение..." autocomplete="off">
+                <button id="sendBtn">Отправить</button>
+            </div>
+            
+            <div id="emojiPicker" class="emoji-picker" style="display:none;"></div>
+        </div>
+    </div>
+
+    <!-- Модалка входящего звонка -->
+    <div id="incomingCallModal" class="modal" style="display:none;">
+        <div class="modal-content call-modal">
+            <h2>📞 Входящий звонок</h2>
+            <p id="callerName"></p>
+            <p id="callType"></p>
+            <div class="call-actions">
+                <button id="acceptCallBtn" class="btn-accept">✓ Принять</button>
+                <button id="rejectCallBtn" class="btn-reject">✗ Отклонить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Окно звонка -->
+    <div id="callWindow" class="call-window" style="display:none;">
+        <div class="call-header">
+            <span id="callPartner"></span>
+            <span id="callTimer">00:00</span>
+        </div>
+        <div class="video-container">
+            <video id="remoteVideo" autoplay playsinline></video>
+            <video id="localVideo" autoplay playsinline muted></video>
+        </div>
+        <div class="call-controls">
+            <button id="muteBtn" title="Микрофон">🎤</button>
+            <button id="cameraBtn" title="Камера">📷</button>
+            <button id="endCallBtn" class="btn-end">📴 Завершить</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="client.js"></script>
+</body>
+</html>
