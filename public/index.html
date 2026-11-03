@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- Экран авторизации -->
     <div id="authScreen" class="screen active">
         <div class="auth-card">
             <span class="material-symbols-rounded logo-icon">chat_bubble</span>
@@ -42,77 +43,68 @@
         </div>
     </div>
 
-    <div id="mainScreen" class="screen">
-        <button id="mobileBackBtn" class="mobile-back-btn">
-            <span class="material-symbols-rounded">arrow_back</span>
-        </button>
-
-        <div class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <h2>Чаты</h2>
-                <div class="user-chip">
-                    <span class="material-symbols-rounded">account_circle</span>
-                    <span id="currentUsername">User</span>
-                    <button id="logoutBtn" title="Выйти">
-                        <span class="material-symbols-rounded">logout</span>
-                    </button>
+    <!-- Главный экран = список чатов (на весь экран) -->
+    <div id="chatsScreen" class="screen">
+        <div class="chats-header">
+            <div class="chats-header-left">
+                <div class="my-avatar-chip" id="myAvatarChip">
+                    <img id="myAvatarImg" class="avatar-small" src="" alt="">
                 </div>
+                <h2>Чаты</h2>
             </div>
-            <div class="chat-tabs">
-                <button class="chat-tab active" data-chat="general">
-                    <span class="material-symbols-rounded">public</span> Общий
-                </button>
-                <button class="chat-tab" data-chat="private">
-                    <span class="material-symbols-rounded">person</span> Личные
-                </button>
-            </div>
-            <div id="usersList" class="users-list"></div>
-            <button id="settingsBtn" class="settings-btn">
-                <span class="material-symbols-rounded">settings</span> Настройки
+            <button id="settingsBtn" class="icon-btn" title="Настройки">
+                <span class="material-symbols-rounded">settings</span>
             </button>
         </div>
-
-        <div class="chat-area">
-            <div class="chat-header">
-                <button id="menuBtn" class="icon-btn mobile-only">
-                    <span class="material-symbols-rounded">menu</span>
-                </button>
-                <div class="chat-info">
-                    <h3 id="chatTitle">Общий чат</h3>
-                    <span id="callStatus" class="call-status"></span>
-                </div>
-                <div class="call-buttons" id="callButtons" style="display:none;">
-                    <button id="audioCallBtn" class="icon-btn" title="Аудиозвонок">
-                        <span class="material-symbols-rounded">call</span>
-                    </button>
-                    <button id="videoCallBtn" class="icon-btn" title="Видеозвонок">
-                        <span class="material-symbols-rounded">videocam</span>
-                    </button>
-                </div>
-            </div>
-            
-            <div class="chat-box" id="messages"></div>
-            
-            <div class="input-area">
-                <div class="input-wrapper">
-                    <button id="emojiBtn" class="input-icon-btn">
-                        <span class="material-symbols-rounded">mood</span>
-                    </button>
-                    <button id="imageBtn" class="input-icon-btn">
-                        <span class="material-symbols-rounded">image</span>
-                    </button>
-                    <input type="file" id="imageInput" accept="image/*" hidden>
-                    <input type="text" id="messageInput" placeholder="Сообщение..." autocomplete="off">
-                </div>
-                <button id="sendBtn" class="send-btn">
-                    <span class="material-symbols-rounded">send</span>
-                </button>
-            </div>
-            <div id="emojiPicker" class="emoji-picker"></div>
+        <div class="chats-search">
+            <span class="material-symbols-rounded search-icon">search</span>
+            <input type="text" id="searchInput" placeholder="Поиск пользователей...">
         </div>
+        <div id="chatsList" class="chats-list"></div>
     </div>
 
-    <!-- Модалка настроек -->
+    <!-- Экран чата (открывается поверх списка) -->
+    <div id="chatScreen" class="screen">
+        <div class="chat-header">
+            <button id="backBtn" class="icon-btn back-btn">
+                <span class="material-symbols-rounded">arrow_back</span>
+            </button>
+            <img id="partnerAvatar" class="avatar-medium" src="" alt="">
+            <div class="partner-info">
+                <h3 id="chatTitle">Имя</h3>
+                <span id="partnerStatus" class="partner-status">в сети</span>
+            </div>
+            <div class="call-buttons">
+                <button id="audioCallBtn" class="icon-btn" title="Аудиозвонок">
+                    <span class="material-symbols-rounded">call</span>
+                </button>
+                <button id="videoCallBtn" class="icon-btn" title="Видеозвонок">
+                    <span class="material-symbols-rounded">videocam</span>
+                </button>
+            </div>
+        </div>
+        
+        <div class="chat-box" id="messages"></div>
+        
+        <div class="input-area">
+            <div class="input-wrapper">
+                <button id="emojiBtn" class="input-icon-btn">
+                    <span class="material-symbols-rounded">mood</span>
+                </button>
+                <button id="imageBtn" class="input-icon-btn">
+                    <span class="material-symbols-rounded">image</span>
+                </button>
+                <input type="file" id="imageInput" accept="image/*" hidden>
+                <input type="text" id="messageInput" placeholder="Сообщение..." autocomplete="off">
+            </div>
+            <button id="sendBtn" class="send-btn">
+                <span class="material-symbols-rounded">send</span>
+            </button>
+        </div>
+        <div id="emojiPicker" class="emoji-picker"></div>
+    </div>
+
+    <!-- Настройки -->
     <div id="settingsModal" class="modal" style="display:none;">
         <div class="modal-content settings-modal">
             <div class="settings-header">
@@ -122,23 +114,48 @@
                 </button>
             </div>
             <div class="settings-content">
-                <div class="setting-item">
-                    <span class="material-symbols-rounded">dark_mode</span>
-                    <span>Тёмная тема</span>
-                    <label class="switch">
-                        <input type="checkbox" id="themeToggle">
-                        <span class="slider"></span>
-                    </label>
+                <div class="settings-section">
+                    <h3>Профиль</h3>
+                    <div class="avatar-editor">
+                        <img id="settingsAvatar" class="avatar-large" src="" alt="">
+                        <label class="btn-secondary">
+                            <span class="material-symbols-rounded">photo_camera</span>
+                            Изменить фото
+                            <input type="file" id="avatarInput" accept="image/*" hidden>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <span class="material-symbols-rounded">person</span>
+                        <span id="settingsUsername">Имя</span>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <h3>Оформление</h3>
+                    <div class="setting-item">
+                        <span class="material-symbols-rounded">dark_mode</span>
+                        <span>Тёмная тема</span>
+                        <label class="switch">
+                            <input type="checkbox" id="themeToggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <h3>Аккаунт</h3>
+                    <button id="logoutBtn" class="btn-danger">
+                        <span class="material-symbols-rounded">logout</span>
+                        Выйти из аккаунта
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Входящий звонок -->
     <div id="incomingCallModal" class="modal" style="display:none;">
         <div class="modal-content call-modal">
-            <span class="material-symbols-rounded call-icon-large">ring_volume</span>
-            <h2>Входящий звонок</h2>
-            <p id="callerName">Имя</p>
+            <img id="callerAvatar" class="avatar-large" src="" alt="">
+            <h2 id="callerName">Имя</h2>
             <p id="callType" class="subtitle">Видеозвонок</p>
             <div class="call-actions">
                 <button id="rejectCallBtn" class="btn-circle reject">
@@ -151,8 +168,10 @@
         </div>
     </div>
 
+    <!-- Окно звонка -->
     <div id="callWindow" class="call-window" style="display:none;">
         <div class="call-header-overlay">
+            <img id="callPartnerAvatar" class="avatar-small" src="" alt="">
             <span id="callPartner">Имя</span>
             <span id="callConnectionStatus" class="connection-status connecting">Подключение...</span>
             <span id="callTimer">00:00</span>
